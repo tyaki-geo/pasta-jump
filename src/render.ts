@@ -1,4 +1,5 @@
 import { drawHanging, drawRunner } from './figure';
+import { bendControlPoint } from './pole';
 import { VISIBLE_FACTOR, captureFactor, clamp, fmt1 } from './logic';
 import {
   BAR_OFFSET,
@@ -35,22 +36,16 @@ function line(ctx: CanvasRenderingContext2D, pts: Pt[], color: string, width: nu
   ctx.stroke();
 }
 
+/** a→b のパスタ。bend>0 で前方・上へ凸にしなる(向きの決め方は pole.ts) */
 function pasta(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, bend = 0): void {
-  const mx = (a.x + b.x) / 2;
-  const my = (a.y + b.y) / 2;
-  // 進行方向と逆(後ろ・下)へしなる
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const cx = mx + (dy / len) * bend;
-  const cy = my - (dx / len) * bend;
+  const c = bendControlPoint(a, b, bend, GROUND);
   for (const [color, width] of [[PASTA_EDGE, pastaWidth + 3], [PASTA, pastaWidth]] as const) {
     ctx.strokeStyle = color;
     ctx.lineWidth = width;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
-    ctx.quadraticCurveTo(cx, cy, b.x, b.y);
+    ctx.quadraticCurveTo(c.x, c.y, b.x, b.y);
     ctx.stroke();
   }
 }
