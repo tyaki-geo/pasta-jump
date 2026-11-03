@@ -17,7 +17,7 @@ function step(g: Game, sec: number): void {
 function plantPerfectly(g: Game): void {
   g.start();
   for (let i = 0; i < 600 && !(g.boxX !== null && g.boxX <= IDEAL_BOX_X); i++) g.update(1 / 60);
-  g.input();
+  g.press();
 }
 
 describe('Game', () => {
@@ -36,12 +36,20 @@ describe('Game', () => {
     expect(results[0]?.kind).toBe('miss');
   });
 
-  it('早すぎるタップは無視される', () => {
+  it('バーが現れる前のタップは無視される', () => {
     const { g } = make(base);
     g.start();
-    step(g, 1.1);
-    g.input();
+    step(g, 0.5);
+    g.press();
     expect(g.phase).toBe('run');
+  });
+
+  it('緑から外れていても突くことはできる', () => {
+    const { g } = make(base);
+    g.start();
+    for (let i = 0; i < 600 && !(g.plantError !== null && g.plantError <= 250); i++) g.update(1 / 60);
+    g.press();
+    expect(g.phase).toBe('vault');
   });
 
   it('折れる確率100%なら折れる', () => {
@@ -56,7 +64,7 @@ describe('Game', () => {
     const { g, results } = make(base);
     plantPerfectly(g);
     step(g, 0.62 * 1.3);
-    g.input();
+    g.liftOff();
     expect(g.phase).toBe('fly');
     step(g, 3);
     expect(results[0]?.kind).toBe('clear');
@@ -67,7 +75,7 @@ describe('Game', () => {
     const { g, results } = make({ ...base, clearRate: 0 });
     plantPerfectly(g);
     step(g, 0.62 * 1.3);
-    g.input();
+    g.liftOff();
     step(g, 3);
     expect(results[0]?.kind).toBe('knocked');
     expect(g.barFallen).toBe(true);

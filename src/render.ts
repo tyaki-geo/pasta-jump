@@ -5,7 +5,11 @@ import {
   H,
   HANDS_X,
   HANDS_Y,
+  GAUGE_SPEED,
+  GAUGE_TARGET_X,
+  PLANT_REACH,
   PLANT_WINDOW,
+  VAULT_TIME,
   POLE_LEN,
   Pt,
   RELEASE_IDEAL,
@@ -13,6 +17,8 @@ import {
   W,
 } from './game';
 
+const GAUGE_X0 = 100;
+const GAUGE_H = 22;
 const PASTA = '#f2c94c';
 const PASTA_EDGE = '#b8892a';
 const SKIN = '#ffe0bd';
@@ -126,14 +132,6 @@ function drawBarAndBox(ctx: CanvasRenderingContext2D, g: Game): void {
   // 突き箱
   ctx.fillStyle = '#4a3b2e';
   ctx.fillRect(bx - 22, GROUND - 4, 44, 14);
-  const err = g.plantError ?? 0;
-  if (g.phase === 'run' && Math.abs(err) <= PLANT_WINDOW) {
-    ctx.strokeStyle = Math.abs(err) < PLANT_WINDOW * 0.25 ? '#2ecc71' : '#ffb020';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(bx, GROUND, 30 + Math.sin(g.t * 20) * 3, Math.PI, 0);
-    ctx.stroke();
-  }
   // バー: 支柱 + 横木(奥行き表現で右へ少し伸ばす)
   const x = bx + BAR_OFFSET;
   const y = g.barY;
@@ -176,29 +174,51 @@ function drawPole(ctx: CanvasRenderingContext2D, g: Game): void {
   }
 }
 
-function drawGauge(ctx: CanvasRenderingContext2D, g: Game): void {
-  if (g.phase !== 'vault') return;
-  const x = W / 2 - 160;
-  const y = 30;
-  const w = 320;
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
-  ctx.fillRect(x, y, w, 18);
+function drawZone(ctx: CanvasRenderingContext2D, cx: number, y: number, outer: number, inner: number): void {
+  ctx.fillStyle = 'rgba(255,176,32,0.85)';
+  ctx.fillRect(cx - outer, y, outer * 2, GAUGE_H);
   ctx.fillStyle = '#2ecc71';
-  ctx.fillRect(x + (RELEASE_IDEAL - RELEASE_WINDOW * 0.4) * w, y, RELEASE_WINDOW * 0.8 * w, 18);
-  ctx.fillStyle = 'rgba(255,176,32,0.7)';
-  ctx.fillRect(x + (RELEASE_IDEAL - RELEASE_WINDOW) * w, y, RELEASE_WINDOW * 0.6 * w, 18);
-  ctx.fillRect(x + (RELEASE_IDEAL + RELEASE_WINDOW * 0.4) * w, y, RELEASE_WINDOW * 0.6 * w, 18);
+  ctx.fillRect(cx - inner, y, inner * 2, GAUGE_H);
+}
+
+/** 地面のゲージ。固定バーに緑ゾーンが重なる瞬間が理想 */
+function drawGauge(ctx: CanvasRenderingContext2D, g: Game): void {
+  const err = g.plantError;
+  let center: number | null = null;
+  let outer = 0;
+  if (g.phase === 'run' && err !== null) {
+    center = GAUGE_TARGET_X + err;
+    outer = PLANT_WINDOW;
+  } else if (g.phase === 'vault') {
+    center = GAUGE_TARGET_X + (RELEASE_IDEAL - g.vaultU) * VAULT_TIME * GAUGE_SPEED;
+    outer = RELEASE_WINDOW * VAULT_TIME * GAUGE_SPEED;
+  }
+  if (center === null) return;
+  const x0 = GAUGE_X0;
+  const x1 = GAUGE_TARGET_X + PLANT_REACH;
+  const y = GROUND + 34;
+  ctx.fillStyle = 'rgba(30,40,60,0.75)';
+  ctx.fillRect(x0, y, x1 - x0, GAUGE_H);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x0, y, x1 - x0, GAUGE_H);
+  ctx.clip();
+  drawZone(ctx, center, y, outer, outer * 0.4);
+  ctx.restore();
+  // 固定バー
   ctx.fillStyle = '#fff';
-  ctx.fillRect(x + g.vaultU * w - 2, y - 4, 4, 26);
+  ctx.fillRect(GAUGE_TARGET_X - 3, y - 8, 6, GAUGE_H + 16);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(GAUGE_TARGET_X - 3, y - 8, 6, GAUGE_H + 16);
 }
 
 function drawHud(ctx: CanvasRenderingContext2D, g: Game): void {
   let text = '';
   if (g.phase === 'run') {
-    const err = g.plantError;
-    text = err === null ? 'ダッシュ！' : Math.abs(err) <= PLANT_WINDOW ? 'いまだ！タップでパスタを突け！' : 'パスタを突くタイミングを待て…';
+    text = g.boxX === null ? 'ダッシュ！' : '緑がバーに重なったらタップして押しっぱなし！';
   } else if (g.phase === 'vault') {
-    text = '緑のところでタップして手を離せ！';
+    text = '緑がバーに重なったら指を離せ！';
   }
   if (!text) return;
   ctx.font = 'bold 20px sans-serif';
@@ -206,9 +226,8 @@ function drawHud(ctx: CanvasRenderingContext2D, g: Game): void {
   ctx.fillStyle = '#fff';
   ctx.strokeStyle = INK;
   ctx.lineWidth = 4;
-  const y = g.phase === 'vault' ? 74 : 40;
-  ctx.strokeText(text, W / 2, y);
-  ctx.fillText(text, W / 2, y);
+  ctx.strokeText(text, W / 2, 40);
+  ctx.fillText(text, W / 2, 40);
 }
 
 export function draw(ctx: CanvasRenderingContext2D, g: Game): void {

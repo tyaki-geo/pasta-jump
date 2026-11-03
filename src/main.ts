@@ -56,16 +56,25 @@ function start(): void {
 }
 startButton.addEventListener('click', start);
 
+// 突く=押す、離す=指を離す。ゲーム中のみ受け付ける
 canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
-  game.input();
+  canvas.setPointerCapture(e.pointerId);
+  game.press();
 });
-window.addEventListener('keydown', (e) => {
-  if (e.code !== 'Space' || e.repeat) return;
-  if (overlay.classList.contains('hidden')) {
+for (const type of ['pointerup', 'pointercancel'] as const) {
+  canvas.addEventListener(type, (e) => {
     e.preventDefault();
-    game.input();
-  }
+    game.liftOff();
+  });
+}
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || e.repeat || !overlay.classList.contains('hidden')) return;
+  e.preventDefault();
+  game.press();
+});
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'Space') game.liftOff();
 });
 
 let last = performance.now();
