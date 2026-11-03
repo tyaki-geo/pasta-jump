@@ -1,4 +1,4 @@
-import { PastaTraits, Settings, clamp, clearProbability, pastaTraits, rollBreak, rollClear } from './logic';
+import { PastaTraits, Settings, clamp, clearProbability, fmt1, pastaTraits, rollBreak, rollClear } from './logic';
 
 // 論理座標(800x450)。描画側で画面サイズに合わせて拡大縮小する
 export const W = 800;
@@ -387,7 +387,7 @@ export class Game {
         { x: sh.c.x + Math.cos(sh.phi) * sh.half, y: sh.c.y + Math.sin(sh.phi) * sh.half },
       ],
     };
-    if (this.t >= 1.4) this.finish('broke', 'パスタが折れた！', null);
+    if (this.t >= 1.4) this.finish('broke', 'La pasta si è spezzata!', null);
   }
 
   // --- fly ---
@@ -423,8 +423,8 @@ export class Game {
     if (!fl.clear && fl.t >= fl.d1 * 0.9 && !this.barFallen) this.barFallen = true;
     if (fl.t >= total + 0.7) {
       const prob = this.plantResultProb;
-      if (fl.clear) this.finish('clear', `${this.settings.barHeight.toFixed(1)}mを超えた！`, prob);
-      else this.finish('knocked', 'バーに当たって落ちた…', prob);
+      if (fl.clear) this.finish('clear', `Superati ${fmt1(this.settings.barHeight)} m!`, prob);
+      else this.finish('knocked', 'Asticella abbattuta…', prob);
     }
   }
 
@@ -449,7 +449,7 @@ export class Game {
       this.body.kind = 'trip';
       this.body.tilt = clamp((this.t - 0.7) / 0.35, 0, 1) * (Math.PI / 2);
     }
-    if (this.t >= 1.6) this.finish('miss', 'タイミングを逃した…', null);
+    if (this.t >= 1.6) this.finish('miss', 'Tempismo sbagliato…', null);
   }
 
   private finish(kind: ResultKind, message: string, clearProb: number | null): void {
