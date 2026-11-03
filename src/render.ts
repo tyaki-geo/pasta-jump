@@ -7,7 +7,6 @@ import {
   H,
   HANDS_X,
   HANDS_Y,
-  GAUGE_SPEED,
   GAUGE_TARGET_X,
   PLANT_REACH,
   VAULT_TIME,
@@ -203,7 +202,7 @@ function drawGauge(ctx: CanvasRenderingContext2D, g: Game): void {
   if (g.phase === 'run' && err !== null) {
     center = GAUGE_TARGET_X + err;
   } else if (g.phase === 'vault') {
-    center = GAUGE_TARGET_X + (RELEASE_IDEAL - g.vaultU) * VAULT_TIME * GAUGE_SPEED;
+    center = GAUGE_TARGET_X + (RELEASE_IDEAL - g.vaultU) * VAULT_TIME * g.gaugeSpeed;
   }
   if (center === null) return;
   const { decayPx, outerHalf } = g.traits;

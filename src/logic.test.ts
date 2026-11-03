@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { CLEAR_CEILING, DEFAULT_SETTINGS, captureFactor, clearProbability, pastaTraits, rollBreak, sanitizeSettings } from './logic';
+import { CLEAR_CEILING, MOISTURE_MAX, MOISTURE_MIN, DEFAULT_SETTINGS, captureFactor, clearProbability, pastaTraits, rollBreak, sanitizeSettings } from './logic';
 import type { Settings } from './logic';
 
 const s = DEFAULT_SETTINGS;
 
 describe('pastaTraits', () => {
   it('水分量が多いほどしなり、折れにくい', () => {
-    const dry = pastaTraits({ ...s, moisture: 0 });
-    const wet = pastaTraits({ ...s, moisture: 1 });
+    const dry = pastaTraits({ ...s, moisture: MOISTURE_MIN });
+    const wet = pastaTraits({ ...s, moisture: MOISTURE_MAX });
     expect(wet.bendPx).toBeGreaterThan(dry.bendPx);
     expect(wet.breakProb).toBeLessThan(dry.breakProb);
   });
@@ -23,7 +23,7 @@ describe('pastaTraits', () => {
     expect(long.breakProb).toBeGreaterThan(short.breakProb);
   });
   it('折れる確率は 0..1 に収まる', () => {
-    for (const m of [0, 1]) for (const t of [1, 3]) for (const l of [2.5, 5.5]) {
+    for (const m of [MOISTURE_MIN, MOISTURE_MAX]) for (const t of [1, 3]) for (const l of [2.5, 5.5]) {
       const p = pastaTraits({ ...s, moisture: m, thickness: t, length: l }).breakProb;
       expect(p).toBeGreaterThanOrEqual(0);
       expect(p).toBeLessThanOrEqual(1);
@@ -61,9 +61,9 @@ describe('超ハードモード', () => {
   const survive = (x: Settings) => (1 - pastaTraits(x).breakProb) * clearProbability(x, 0, 0);
   const all: Settings[] = [];
   for (const barHeight of [1, 2, 3, 4, 5])
-    for (let moisture = 0; moisture <= 1.001; moisture += 0.1)
+    for (let k = 0; k <= 10; k++)
       for (let thickness = 1; thickness <= 3.001; thickness += 0.25)
-        for (let length = 2.5; length <= 5.5; length += 0.5) all.push({ barHeight, moisture, thickness, length });
+        for (let length = 2.5; length <= 5.5; length += 0.5) all.push({ barHeight, moisture: MOISTURE_MIN + (k / 10) * (MOISTURE_MAX - MOISTURE_MIN), thickness, length, barSpeed: 1 });
 
   it('パラメーターもタイミングも完璧な最良ケースで成功率は約5%', () => {
     const best = Math.max(...all.map(survive));
@@ -88,12 +88,14 @@ describe('rollBreak', () => {
 
 describe('sanitizeSettings', () => {
   it('範囲外・不正値・旧形式を丸める', () => {
-    expect(sanitizeSettings({ barHeight: 99, moisture: -1, thickness: NaN, length: 100 })).toEqual({
+    expect(sanitizeSettings({ barHeight: 99, moisture: -1, thickness: NaN, length: 100, barSpeed: 9 })).toEqual({
       barHeight: 5,
-      moisture: 0,
+      moisture: MOISTURE_MIN,
       thickness: 2,
       length: 5.5,
+      barSpeed: 2,
     });
+    expect(sanitizeSettings({ moisture: 1 }).moisture).toBe(MOISTURE_MAX);
     expect(sanitizeSettings({ breakRate: 0.3 } as never)).toEqual(DEFAULT_SETTINGS);
     expect(sanitizeSettings(null)).toEqual(DEFAULT_SETTINGS);
   });
