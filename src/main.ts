@@ -42,7 +42,7 @@ function syncSettings(): void {
   const t = pastaTraits(settings);
   $('traits').textContent =
     `折れる確率 ${Math.round(t.breakProb * 100)}% / しなり ${Math.round(t.bendPx)} / 緑の帯 ${Math.round(t.greenHalf * 2)}px` +
-    ` / 完璧に捉えた時の成功率 ${Math.round(clearProbability(settings, 0, 0) * 100)}%`;
+    ` / 完璧に捉えても成功率 ${Math.round((1 - t.breakProb) * clearProbability(settings, 0, 0) * 100)}%`;
   saveSettings(settings);
 }
 for (const el of Object.values(inputs)) el.addEventListener('input', syncSettings);

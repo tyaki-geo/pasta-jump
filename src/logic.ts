@@ -30,8 +30,8 @@ const norm = (v: number, min: number, max: number): number => clamp((v - min) / 
 export const DECAY = 1.2;
 /** これ未満の確率係数になる位置は帯として表示しない(=受け付け範囲の端) */
 export const VISIBLE_FACTOR = 0.08;
-/** 水分量0.5・太さ2mmのときの緑の帯の半幅(px) */
-const BASE_GREEN_HALF = 40;
+/** 太さ2mm(正規化0.5)のときの緑の帯の半幅(px)。超ハードモードなのでごく狭い */
+const BASE_GREEN_HALF = 12;
 
 export interface PastaTraits {
   /** 折れる確率 0..1 */
@@ -50,8 +50,10 @@ export function pastaTraits(s: Settings): PastaTraits {
   const t = norm(s.thickness, THICKNESS_MIN, THICKNESS_MAX);
   const l = norm(s.length, LENGTH_MIN, LENGTH_MAX);
   const greenHalf = BASE_GREEN_HALF * (1.5 - t);
+  // 超ハードモード: ほとんどの設定でパスタは折れる。折れにくい組み合わせ(太い・湿っている・短い)は帯が狭い
+  const fragility = (0.5 + l) / ((0.5 + t) * (0.5 + m));
   return {
-    breakProb: clamp((0.2 * (0.5 + l)) / ((0.5 + t) * (0.5 + m)), 0, 0.95),
+    breakProb: clamp(0.75 * fragility ** 1.5, 0, 0.97),
     bendPx: 38 * (0.4 + 1.2 * m),
     greenHalf,
     outerHalf: greenHalf * (1 + Math.log(1 / VISIBLE_FACTOR) / DECAY),
@@ -66,7 +68,7 @@ export function captureFactor(errPx: number, greenHalf: number): number {
 
 /** バーが高いほど(パスタが短いほど)成功しにくい */
 export function heightFactor(s: Settings): number {
-  return clamp(1.75 - s.barHeight / s.length, 0.1, 1);
+  return clamp(1.4 - s.barHeight / s.length, 0.05, 1);
 }
 
 /** 超えられる確率。突く/離す両方で緑を正確に捉えるほど高い */
