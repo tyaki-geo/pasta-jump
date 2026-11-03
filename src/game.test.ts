@@ -10,6 +10,12 @@ function make(s: Settings, rng = () => 0.99): { g: Game; results: Result[] } {
   return { g: new Game(s, (r) => results.push(r), rng), results };
 }
 
+/** 先頭から順に値を返し、尽きたら最後の値を返す乱数 */
+const seq = (...v: number[]) => {
+  let i = 0;
+  return () => v[Math.min(i++, v.length - 1)];
+};
+
 function step(g: Game, sec: number): void {
   for (let i = 0; i < sec * 60; i++) g.update(1 / 60);
 }
@@ -45,7 +51,7 @@ describe('Game', () => {
     expect(g.phase).toBe('run');
   });
 
-  it('緑から外れていても突くことはできる', () => {
+  it('帯から外れていても突くことはできる', () => {
     const { g } = make(base);
     g.start();
     for (let i = 0; i < 600 && !(g.plantError !== null && g.plantError <= 250); i++) g.update(1 / 60);
@@ -61,8 +67,25 @@ describe('Game', () => {
     expect(results[0]?.kind).toBe('broke');
   });
 
-  it('緑を正確に捉えれば成功', () => {
-    const { g, results } = make(base);
+  it('折れるときは長い2本とごく短い1本の3つに折れる', () => {
+    const { g } = make(base, () => 0);
+    plantPerfectly(g);
+    while (g.phase === 'vault') g.update(1 / 60);
+    expect(g.phase).toBe('break');
+    g.update(1 / 60);
+    const { base: b, mid, piece, shard } = g.pole;
+    if (!mid || !piece || !shard) throw new Error('3本に折れていない');
+    const len = (p: { x: number; y: number }, q: { x: number; y: number }) => Math.hypot(p.x - q.x, p.y - q.y);
+    const lower = len(b, mid);
+    const upper = len(piece[0], piece[1]);
+    const small = len(shard[0], shard[1]);
+    expect(small).toBeLessThan(lower * 0.3);
+    expect(small).toBeLessThan(upper * 0.3);
+  });
+
+  it('バーの中心を正確に捉え、乱数が当たりなら成功', () => {
+    // 順に: 折れ判定(折れない)、折れ位置、成功判定(当たり)
+    const { g, results } = make(base, seq(0.99, 0.5, 0.001));
     plantPerfectly(g);
     step(g, 0.62 * 1.3);
     g.liftOff();

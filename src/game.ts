@@ -64,8 +64,10 @@ export interface Pole {
   top: Pt;
   bend: number;
   /** broken: 折れた上半分の両端 */
+  /** 3つに折れたとき: 下の長い1本(base〜mid)、上の長い1本(piece)、中央付近の短いかけら(shard) */
   piece?: [Pt, Pt];
   mid?: Pt;
+  shard?: [Pt, Pt];
 }
 
 interface Flight {
@@ -101,7 +103,16 @@ export class Game {
   private theta0 = THETA0;
   private flight: Flight | null = null;
   private barVy = 0;
-  private fall: { a: Pt; va: Pt; p1: Pt; v1: Pt; p2: Pt; v2: Pt; mid: Pt } | null = null;
+  private fall: {
+    a: Pt;
+    va: Pt;
+    /** 下の長い1本の先端 */
+    low: Pt;
+    /** 上の長い1本: 手元から折れ口へのベクトル(回転して垂れ下がる) */
+    vec: Pt;
+    /** 中央付近の短いかけら */
+    shard: { c: Pt; v: Pt; phi: number; w: number; half: number };
+  } | null = null;
   private releaseTheta = 0;
   private plantResultProb: number | null = null;
 
@@ -310,15 +321,22 @@ export class Game {
 
   private startBreak(): void {
     const { base, top } = this.pole;
-    const mid = { x: (base.x + top.x) / 2, y: (base.y + top.y) / 2 };
+    const at = (k: number): Pt => ({ x: lerp(base.x, top.x, k), y: lerp(base.y, top.y, k) });
+    // 中央付近の2か所で折れ、長い2本とごく短い1本(全体の約1割)になる
+    const upStart = at(0.55);
+    const chord = Math.hypot(top.x - base.x, top.y - base.y);
     this.fall = {
       a: { x: top.x, y: top.y },
       va: { x: 70, y: -140 },
-      p1: { ...mid },
-      v1: { x: 20, y: -80 },
-      p2: { ...top },
-      v2: { x: 70, y: -140 },
-      mid,
+      low: at(0.45),
+      vec: { x: upStart.x - top.x, y: upStart.y - top.y },
+      shard: {
+        c: at(0.5),
+        v: { x: -50, y: -230 },
+        phi: Math.atan2(top.y - base.y, top.x - base.x),
+        w: 12,
+        half: chord * 0.05,
+      },
     };
     this.phase = 'break';
     this.t = 0;
@@ -327,15 +345,22 @@ export class Game {
   private updateBreak(dt: number): void {
     const f = this.fall;
     if (!f) return;
-    const step = (p: Pt, v: Pt, floor: number) => {
-      v.y += GRAVITY * dt;
-      p.x += v.x * dt;
-      p.y = Math.min(floor, p.y + v.y * dt);
-      if (p.y >= floor) v.x = v.y = 0;
+    f.va.y += GRAVITY * dt;
+    f.a.x += f.va.x * dt;
+    f.a.y = Math.min(GROUND - 40, f.a.y + f.va.y * dt);
+    if (f.a.y >= GROUND - 40) f.va.x = f.va.y = 0;
+    const sh = f.shard;
+    sh.v.y += GRAVITY * dt;
+    sh.c.x += sh.v.x * dt;
+    sh.c.y = Math.min(GROUND - 4, sh.c.y + sh.v.y * dt);
+    sh.phi += sh.w * dt;
+    if (sh.c.y >= GROUND - 4) sh.v.x = sh.v.y = sh.w = 0;
+    // 上の1本は手元を支点に垂れ下がる
+    const rot = -Math.min(1.0, 1.8 * this.t);
+    const b: Pt = {
+      x: f.a.x + f.vec.x * Math.cos(rot) - f.vec.y * Math.sin(rot),
+      y: Math.min(GROUND - 4, f.a.y + f.vec.x * Math.sin(rot) + f.vec.y * Math.cos(rot)),
     };
-    step(f.a, f.va, GROUND - 40);
-    step(f.p1, f.v1, GROUND - 4);
-    step(f.p2, f.v2, GROUND - 4);
     this.body = {
       kind: 'fall',
       x: f.a.x,
@@ -350,8 +375,12 @@ export class Game {
       base: { x: this.baseX, y: GROUND },
       top: f.a,
       bend: 0,
-      mid: f.mid,
-      piece: [f.p1, f.p2],
+      mid: f.low,
+      piece: [b, f.a],
+      shard: [
+        { x: sh.c.x - Math.cos(sh.phi) * sh.half, y: sh.c.y - Math.sin(sh.phi) * sh.half },
+        { x: sh.c.x + Math.cos(sh.phi) * sh.half, y: sh.c.y + Math.sin(sh.phi) * sh.half },
+      ],
     };
     if (this.t >= 1.4) this.finish('broke', 'パスタが折れた！', null);
   }

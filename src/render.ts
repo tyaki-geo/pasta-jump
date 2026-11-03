@@ -173,23 +173,25 @@ function drawPole(ctx: CanvasRenderingContext2D, g: Game): void {
   } else if (p.kind === 'broken' && p.mid && p.piece) {
     pasta(ctx, p.base, p.mid, 0);
     pasta(ctx, p.piece[0], p.piece[1], 0);
+    if (p.shard) pasta(ctx, p.shard[0], p.shard[1], 0);
   }
 }
 
-/** 確率係数 f(0..1) を 無色 → 黄 → 緑 のグラデーション色にする */
+/** 確率係数 f(0..1) を 無色 → 黄 → オレンジ → 赤(中心) のグラデーション色にする */
 function zoneColor(f: number): string {
-  const YELLOW = [255, 205, 40];
-  const GREEN = [46, 204, 113];
-  const k = clamp((f - 0.35) / 0.5, 0, 1);
-  const c = YELLOW.map((v, i) => Math.round(v + (GREEN[i] - v) * k));
-  const alpha = clamp((f - VISIBLE_FACTOR) / 0.27, 0, 1);
+  const YELLOW = [255, 214, 0];
+  const ORANGE = [255, 140, 0];
+  const RED = [229, 57, 53];
+  const mixc = (a: number[], b: number[], k: number) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
+  const c = f < 0.5 ? mixc(YELLOW, ORANGE, clamp((f - 0.2) / 0.3, 0, 1)) : mixc(ORANGE, RED, clamp((f - 0.5) / 0.5, 0, 1));
+  const alpha = clamp((f - VISIBLE_FACTOR) / 0.12, 0, 1);
   return `rgba(${c[0]},${c[1]},${c[2]},${alpha.toFixed(3)})`;
 }
 
-function drawZone(ctx: CanvasRenderingContext2D, cx: number, y: number, greenHalf: number, outerHalf: number): void {
+function drawZone(ctx: CanvasRenderingContext2D, cx: number, y: number, decayPx: number, outerHalf: number): void {
   const step = 2;
   for (let dx = -outerHalf; dx < outerHalf; dx += step) {
-    ctx.fillStyle = zoneColor(captureFactor(dx + step / 2, greenHalf));
+    ctx.fillStyle = zoneColor(captureFactor(dx + step / 2, decayPx));
     ctx.fillRect(cx + dx, y, step + 0.5, GAUGE_H);
   }
 }
@@ -204,7 +206,7 @@ function drawGauge(ctx: CanvasRenderingContext2D, g: Game): void {
     center = GAUGE_TARGET_X + (RELEASE_IDEAL - g.vaultU) * VAULT_TIME * GAUGE_SPEED;
   }
   if (center === null) return;
-  const { greenHalf, outerHalf } = g.traits;
+  const { decayPx, outerHalf } = g.traits;
   const x0 = GAUGE_X0;
   const x1 = GAUGE_TARGET_X + PLANT_REACH;
   const y = GROUND + 34;
@@ -214,7 +216,7 @@ function drawGauge(ctx: CanvasRenderingContext2D, g: Game): void {
   ctx.beginPath();
   ctx.rect(x0, y, x1 - x0, GAUGE_H);
   ctx.clip();
-  drawZone(ctx, center, y, greenHalf, outerHalf);
+  drawZone(ctx, center, y, decayPx, outerHalf);
   ctx.restore();
   // 固定バー
   ctx.fillStyle = '#fff';
@@ -227,9 +229,9 @@ function drawGauge(ctx: CanvasRenderingContext2D, g: Game): void {
 function drawHud(ctx: CanvasRenderingContext2D, g: Game): void {
   let text = '';
   if (g.phase === 'run') {
-    text = g.boxX === null ? 'ダッシュ！' : '緑がバーに重なったらタップして押しっぱなし！';
+    text = g.boxX === null ? 'ダッシュ！' : '帯の中心がバーに重なったらタップして押しっぱなし！';
   } else if (g.phase === 'vault') {
-    text = '緑がバーに重なったら指を離せ！';
+    text = '帯の中心がバーに重なったら指を離せ！';
   }
   if (!text) return;
   ctx.font = 'bold 20px sans-serif';
