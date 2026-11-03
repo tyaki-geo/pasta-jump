@@ -1,20 +1,16 @@
-import { Settings, clamp, clearProbability, rollBreak, rollClear, timingScore } from './logic';
+import { PastaTraits, Settings, clamp, clearProbability, pastaTraits, rollBreak, rollClear } from './logic';
 
 // 論理座標(800x450)。描画側で画面サイズに合わせて拡大縮小する
 export const W = 800;
 export const H = 450;
 export const GROUND = 380;
 export const PPM = 60; // 1mあたりのpx
-export const POLE_LEN = 240;
 export const PLAYER_X = 160;
 export const HANDS_X = PLAYER_X + 25;
 export const HANDS_Y = GROUND - 76;
 
 const THETA0 = (-75 * Math.PI) / 180;
 const THETA1 = (70 * Math.PI) / 180;
-/** このx位置に箱が来たときが突きの理想タイミング */
-export const IDEAL_BOX_X = HANDS_X + POLE_LEN * Math.sin(-THETA0);
-export const PLANT_WINDOW = 100;
 /** 突きを受け付ける範囲(理想位置からの手前側px)。ゲージの表示範囲と同じ */
 export const PLANT_REACH = 300;
 /** 地面ゲージ: 固定バーの位置と、緑ゾーンが流れる速さ(px/s) */
@@ -22,7 +18,6 @@ export const GAUGE_TARGET_X = 260;
 export const GAUGE_SPEED = 300;
 export const VAULT_TIME = 1.3;
 export const RELEASE_IDEAL = 0.62;
-export const RELEASE_WINDOW = 0.25;
 export const BAR_OFFSET = 30; // 箱からバーまでの距離
 
 const BOX_SPAWN_TIME = 1.0;
@@ -37,7 +32,7 @@ export interface Result {
   kind: ResultKind;
   message: string;
   /** 折れる確率(%表示用) */
-  breakRate: number;
+  breakProb: number;
   /** 超えられる確率。突けなかった場合は null */
   clearProb: number | null;
 }
@@ -99,7 +94,7 @@ export class Game {
   body: Body = { kind: 'run', x: PLAYER_X, y: GROUND, alpha: 0, cycle: 0, tilt: 0 };
   pole: Pole = { kind: 'carry', tipAngle: -0.15, base: { x: 0, y: GROUND }, top: { x: 0, y: 0 }, bend: 0 };
 
-  private plantScore = 0;
+  private plantErrPx = 0;
   private willBreak = false;
   private breakU = 0.5;
   private baseX = 0;
@@ -118,6 +113,20 @@ export class Game {
     this.reset();
   }
 
+  /** パスタの長さ(px) */
+  get poleLen(): number {
+    return this.settings.length * PPM;
+  }
+
+  get traits(): PastaTraits {
+    return pastaTraits(this.settings);
+  }
+
+  /** このx位置に箱が来たときが突きの理想タイミング */
+  get idealBoxX(): number {
+    return HANDS_X + this.poleLen * Math.sin(-THETA0);
+  }
+
   get barY(): number {
     return GROUND - this.settings.barHeight * PPM;
   }
@@ -128,7 +137,7 @@ export class Game {
 
   /** 箱の位置と理想位置のずれ(+: まだ遠い) */
   get plantError(): number | null {
-    return this.boxX === null ? null : this.boxX - IDEAL_BOX_X;
+    return this.boxX === null ? null : this.boxX - this.idealBoxX;
   }
 
   reset(): void {
@@ -197,7 +206,7 @@ export class Game {
     if (this.boxX === null && this.runTime >= BOX_SPAWN_TIME) this.boxX = BOX_SPAWN_X;
     this.updateRunPose();
     const err = this.plantError;
-    if (err !== null && err < -PLANT_WINDOW) this.startMiss();
+    if (err !== null && err < -this.traits.outerHalf) this.startMiss();
   }
 
   private advanceWorld(dt: number): void {
@@ -214,17 +223,17 @@ export class Game {
     const err = this.plantError;
     const near = err === null ? 0 : clamp(1 - err / 200, 0, 1);
     this.pole.kind = 'carry';
-    this.pole.tipAngle = lerp(-0.15, Math.asin((GROUND - HANDS_Y) / POLE_LEN), near) + Math.sin(this.body.cycle * 2) * 0.02;
+    this.pole.tipAngle = lerp(-0.15, Math.asin(clamp((GROUND - HANDS_Y) / this.poleLen, 0, 1)), near) + Math.sin(this.body.cycle * 2) * 0.02;
   }
 
   private tryPlant(): void {
     const err = this.plantError;
     if (err === null || err > PLANT_REACH) return; // 箱がまだ遠い: 無視
-    this.plantScore = timingScore(err, PLANT_WINDOW);
+    this.plantErrPx = err;
     this.willBreak = rollBreak(this.settings, this.rng);
     this.breakU = 0.3 + this.rng() * 0.35;
     this.baseX = this.boxX as number;
-    this.theta0 = -Math.asin(clamp((this.baseX - HANDS_X) / POLE_LEN, -1, 1));
+    this.theta0 = -Math.asin(clamp((this.baseX - HANDS_X) / this.poleLen, -1, 1));
     this.phase = 'vault';
     this.t = 0;
     this.vaultU = 0;
@@ -237,8 +246,9 @@ export class Game {
   private vaultGeometry(u: number): { top: Pt; theta: number; bend: number } {
     const theta = lerp(this.theta0, THETA1, u);
     const bend = Math.sin(Math.PI * clamp(u, 0, 1));
-    const len = POLE_LEN * (1 - 0.15 * bend);
-    return { top: { x: this.baseX + len * Math.sin(theta), y: GROUND - len * Math.cos(theta) }, theta, bend: bend * 38 };
+    const bendPx = this.traits.bendPx;
+    const len = this.poleLen * (1 - 0.15 * bend * (bendPx / 38));
+    return { top: { x: this.baseX + len * Math.sin(theta), y: GROUND - len * Math.cos(theta) }, theta, bend: bend * bendPx };
   }
 
   private updateVault(dt: number): void {
@@ -259,17 +269,22 @@ export class Game {
     if (this.willBreak && this.vaultU >= this.breakU) {
       this.startBreak();
     } else if (this.vaultU >= 1) {
-      this.releaseWith(0); // 離し損ね
+      this.releaseWith(this.releaseErrPx()); // 離し損ね
     }
   }
 
   private release(): void {
-    this.releaseWith(timingScore(this.vaultU - RELEASE_IDEAL, RELEASE_WINDOW));
+    this.releaseWith(this.releaseErrPx());
   }
 
-  private releaseWith(releaseScore: number): void {
-    const prob = clearProbability(this.settings, this.plantScore, releaseScore);
-    const clear = rollClear(this.settings, this.plantScore, releaseScore, this.rng);
+  /** 離すゲージ上での理想位置とのずれ(px) */
+  private releaseErrPx(): number {
+    return (this.vaultU - RELEASE_IDEAL) * VAULT_TIME * GAUGE_SPEED;
+  }
+
+  private releaseWith(releaseErrPx: number): void {
+    const prob = clearProbability(this.settings, this.plantErrPx, releaseErrPx);
+    const clear = rollClear(this.settings, this.plantErrPx, releaseErrPx, this.rng);
     this.plantResultProb = prob;
     const p0 = { x: this.body.x, y: this.body.y };
     const barX = this.baseX + BAR_OFFSET;
@@ -368,7 +383,7 @@ export class Game {
       kind: 'vault',
       tipAngle: 0,
       base: { x: this.baseX, y: GROUND },
-      top: { x: this.baseX + POLE_LEN * Math.sin(th), y: GROUND - POLE_LEN * Math.cos(th) },
+      top: { x: this.baseX + this.poleLen * Math.sin(th), y: GROUND - this.poleLen * Math.cos(th) },
       bend: 0,
     };
     if (!fl.clear && fl.t >= fl.d1 * 0.9 && !this.barFallen) this.barFallen = true;
@@ -406,7 +421,7 @@ export class Game {
   private finish(kind: ResultKind, message: string, clearProb: number | null): void {
     if (this.phase === 'done') return;
     this.phase = 'done';
-    this.result = { kind, message, breakRate: this.settings.breakRate, clearProb };
+    this.result = { kind, message, breakProb: this.traits.breakProb, clearProb };
     this.onFinish(this.result);
   }
 }

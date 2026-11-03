@@ -1,4 +1,5 @@
 import { drawHanging, drawRunner } from './figure';
+import { VISIBLE_FACTOR, captureFactor, clamp } from './logic';
 import {
   BAR_OFFSET,
   Game,
@@ -9,17 +10,16 @@ import {
   GAUGE_SPEED,
   GAUGE_TARGET_X,
   PLANT_REACH,
-  PLANT_WINDOW,
   VAULT_TIME,
-  POLE_LEN,
   Pt,
   RELEASE_IDEAL,
-  RELEASE_WINDOW,
   W,
 } from './game';
 
 const GAUGE_X0 = 100;
 const GAUGE_H = 22;
+/** パスタの太さ(描画px)。draw() で設定の太さから更新する */
+let pastaWidth = 5;
 const PASTA = '#f2c94c';
 const PASTA_EDGE = '#b8892a';
 const SKIN = '#ffe0bd';
@@ -45,7 +45,7 @@ function pasta(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, bend = 0): void {
   const len = Math.hypot(dx, dy) || 1;
   const cx = mx + (dy / len) * bend;
   const cy = my - (dx / len) * bend;
-  for (const [color, width] of [[PASTA_EDGE, 8], [PASTA, 5]] as const) {
+  for (const [color, width] of [[PASTA_EDGE, pastaWidth + 3], [PASTA, pastaWidth]] as const) {
     ctx.strokeStyle = color;
     ctx.lineWidth = width;
     ctx.lineCap = 'round';
@@ -165,7 +165,7 @@ function drawPole(ctx: CanvasRenderingContext2D, g: Game): void {
   const p = g.pole;
   if (p.kind === 'carry') {
     const a = { x: HANDS_X - 40, y: HANDS_Y - Math.sin(p.tipAngle) * 40 };
-    const b = { x: HANDS_X + POLE_LEN * Math.cos(p.tipAngle) - 30, y: HANDS_Y + POLE_LEN * Math.sin(p.tipAngle) };
+    const b = { x: HANDS_X + g.poleLen * Math.cos(p.tipAngle) - 30, y: HANDS_Y + g.poleLen * Math.sin(p.tipAngle) };
     // 先端が伸びきった位置を維持しつつ手元を後ろに残す
     pasta(ctx, a, { x: HANDS_X + (b.x - HANDS_X) + 30, y: b.y }, -4);
   } else if (p.kind === 'vault') {
@@ -176,26 +176,35 @@ function drawPole(ctx: CanvasRenderingContext2D, g: Game): void {
   }
 }
 
-function drawZone(ctx: CanvasRenderingContext2D, cx: number, y: number, outer: number, inner: number): void {
-  ctx.fillStyle = 'rgba(255,176,32,0.85)';
-  ctx.fillRect(cx - outer, y, outer * 2, GAUGE_H);
-  ctx.fillStyle = '#2ecc71';
-  ctx.fillRect(cx - inner, y, inner * 2, GAUGE_H);
+/** 確率係数 f(0..1) を 無色 → 黄 → 緑 のグラデーション色にする */
+function zoneColor(f: number): string {
+  const YELLOW = [255, 205, 40];
+  const GREEN = [46, 204, 113];
+  const k = clamp((f - 0.35) / 0.5, 0, 1);
+  const c = YELLOW.map((v, i) => Math.round(v + (GREEN[i] - v) * k));
+  const alpha = clamp((f - VISIBLE_FACTOR) / 0.27, 0, 1);
+  return `rgba(${c[0]},${c[1]},${c[2]},${alpha.toFixed(3)})`;
+}
+
+function drawZone(ctx: CanvasRenderingContext2D, cx: number, y: number, greenHalf: number, outerHalf: number): void {
+  const step = 2;
+  for (let dx = -outerHalf; dx < outerHalf; dx += step) {
+    ctx.fillStyle = zoneColor(captureFactor(dx + step / 2, greenHalf));
+    ctx.fillRect(cx + dx, y, step + 0.5, GAUGE_H);
+  }
 }
 
 /** 地面のゲージ。固定バーに緑ゾーンが重なる瞬間が理想 */
 function drawGauge(ctx: CanvasRenderingContext2D, g: Game): void {
   const err = g.plantError;
   let center: number | null = null;
-  let outer = 0;
   if (g.phase === 'run' && err !== null) {
     center = GAUGE_TARGET_X + err;
-    outer = PLANT_WINDOW;
   } else if (g.phase === 'vault') {
     center = GAUGE_TARGET_X + (RELEASE_IDEAL - g.vaultU) * VAULT_TIME * GAUGE_SPEED;
-    outer = RELEASE_WINDOW * VAULT_TIME * GAUGE_SPEED;
   }
   if (center === null) return;
+  const { greenHalf, outerHalf } = g.traits;
   const x0 = GAUGE_X0;
   const x1 = GAUGE_TARGET_X + PLANT_REACH;
   const y = GROUND + 34;
@@ -205,7 +214,7 @@ function drawGauge(ctx: CanvasRenderingContext2D, g: Game): void {
   ctx.beginPath();
   ctx.rect(x0, y, x1 - x0, GAUGE_H);
   ctx.clip();
-  drawZone(ctx, center, y, outer, outer * 0.4);
+  drawZone(ctx, center, y, greenHalf, outerHalf);
   ctx.restore();
   // 固定バー
   ctx.fillStyle = '#fff';
@@ -233,6 +242,7 @@ function drawHud(ctx: CanvasRenderingContext2D, g: Game): void {
 }
 
 export function draw(ctx: CanvasRenderingContext2D, g: Game): void {
+  pastaWidth = 2.5 * g.settings.thickness;
   ctx.clearRect(0, 0, W, H);
   drawBackground(ctx, g);
   drawBarAndBox(ctx, g);
