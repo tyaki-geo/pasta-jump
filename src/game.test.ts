@@ -3,7 +3,7 @@ import { Game, Result } from './game';
 import { Settings } from './logic';
 
 // 緑を捉えれば成功確率100%、乱数0.99なら折れない設定
-const base: Settings = { barHeight: 1, moisture: 0.1, thickness: 2, length: 4, barSpeed: 1 };
+const base: Settings = { barHeight: 1, moisture: 0.1, thickness: 2, length: 4 };
 
 function make(s: Settings, rng = () => 0.99): { g: Game; results: Result[] } {
   const results: Result[] = [];
@@ -28,15 +28,15 @@ function plantPerfectly(g: Game): void {
 }
 
 describe('Game', () => {
-  it('帯の速さの倍率で走る速さ(突くゲージ)と離すゲージが変わる', () => {
-    const slow = make({ ...base, barSpeed: 0.5 }).g;
-    const fast = make({ ...base, barSpeed: 2 }).g;
-    slow.start();
-    fast.start();
-    step(slow, 1);
-    step(fast, 1);
-    expect(fast.speed).toBeCloseTo(slow.speed * 4);
-    expect(fast.gaugeSpeed).toBe(slow.gaugeSpeed * 4);
+  it('帯の速さは太さで決まり、太いほど遅い(幅と同じ決め方)', () => {
+    const thin = make({ ...base, thickness: 1 }).g;
+    const thick = make({ ...base, thickness: 3 }).g;
+    thin.start();
+    thick.start();
+    step(thin, 1);
+    step(thick, 1);
+    expect(thin.speed).toBeCloseTo(thick.speed * 3);
+    expect(thin.gaugeSpeed).toBeCloseTo(thick.gaugeSpeed * 3);
   });
 
   it('最初はバーが無く、一定時間走ると現れる', () => {

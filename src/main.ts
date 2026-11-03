@@ -1,6 +1,5 @@
 import './style.css';
 import { Game, Result } from './game';
-import { clearProbability, pastaTraits } from './logic';
 import { draw } from './render';
 import { loadSettings, saveSettings } from './storage';
 
@@ -15,20 +14,17 @@ const ctx = canvas.getContext('2d');
 if (!ctx) throw new Error('2D canvas is not supported');
 const overlay = $('overlay');
 const message = $('message');
-const stats = $('stats');
 const startButton = $<HTMLButtonElement>('start');
 const inputs = {
   bar: $<HTMLInputElement>('bar'),
   moisture: $<HTMLInputElement>('moisture'),
   thickness: $<HTMLInputElement>('thickness'),
   length: $<HTMLInputElement>('length'),
-  speed: $<HTMLInputElement>('speed'),
 };
 
 const settings = loadSettings();
 inputs.bar.value = String(settings.barHeight);
 inputs.moisture.value = String(Math.round(settings.moisture * 1000) / 10);
-inputs.speed.value = String(settings.barSpeed);
 inputs.thickness.value = String(settings.thickness);
 inputs.length.value = String(settings.length);
 
@@ -37,16 +33,10 @@ function syncSettings(): void {
   settings.moisture = Number(inputs.moisture.value) / 100;
   settings.thickness = Number(inputs.thickness.value);
   settings.length = Number(inputs.length.value);
-  settings.barSpeed = Number(inputs.speed.value);
   $('o-bar').textContent = `${settings.barHeight.toFixed(1)} m`;
   $('o-moisture').textContent = `${inputs.moisture.value} %`;
   $('o-thickness').textContent = `${settings.thickness.toFixed(1)} mm`;
-  $('o-speed').textContent = `×${settings.barSpeed.toFixed(1)}`;
   $('o-length').textContent = `${settings.length.toFixed(1)} m`;
-  const t = pastaTraits(settings);
-  $('traits').textContent =
-    `折れる確率 ${Math.round(t.breakProb * 100)}% / しなり ${Math.round(t.bendPx)} / 帯の広がり ${Math.round(t.decayPx)}px` +
-    ` / 完璧に捉えても成功率 ${Math.round((1 - t.breakProb) * clearProbability(settings, 0, 0) * 100)}%`;
   saveSettings(settings);
 }
 for (const el of Object.values(inputs)) el.addEventListener('input', syncSettings);
@@ -54,9 +44,6 @@ syncSettings();
 
 function onFinish(r: Result): void {
   message.textContent = r.message;
-  const parts = [`折れる確率 ${Math.round(r.breakProb * 100)}%`];
-  if (r.clearProb !== null) parts.push(`この跳躍の成功率 ${Math.round(r.clearProb * 100)}%`);
-  stats.textContent = parts.join(' / ');
   startButton.textContent = 'もう一度';
   setTimeout(() => overlay.classList.remove('hidden'), 400);
 }
