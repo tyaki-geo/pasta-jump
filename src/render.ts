@@ -225,23 +225,6 @@ function drawGauge(ctx: CanvasRenderingContext2D, g: Game): void {
   ctx.strokeRect(GAUGE_TARGET_X - 3, y - 8, 6, GAUGE_H + 16);
 }
 
-function drawHud(ctx: CanvasRenderingContext2D, g: Game): void {
-  let text = '';
-  if (g.phase === 'run') {
-    text = g.boxX === null ? 'ダッシュ！' : '帯の中心がバーに重なったらタップして押しっぱなし！';
-  } else if (g.phase === 'vault') {
-    text = '帯の中心がバーに重なったら指を離せ！';
-  }
-  if (!text) return;
-  ctx.font = 'bold 20px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#fff';
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 4;
-  ctx.strokeText(text, W / 2, 40);
-  ctx.fillText(text, W / 2, 40);
-}
-
 export function draw(ctx: CanvasRenderingContext2D, g: Game): void {
   pastaWidth = 2.5 * g.settings.thickness;
   ctx.clearRect(0, 0, W, H);
@@ -260,6 +243,5 @@ export function draw(ctx: CanvasRenderingContext2D, g: Game): void {
     drawHanging(ctx, b.x, b.y, b.alpha, b.cycle);
   }
   drawGauge(ctx, g);
-  drawHud(ctx, g);
 }
 

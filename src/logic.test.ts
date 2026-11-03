@@ -31,6 +31,16 @@ describe('pastaTraits', () => {
   });
 });
 
+describe('帯の速さ', () => {
+  it('幅と同じ決め方: 太さ由来で、太いほど狭く遅い', () => {
+    const thin = pastaTraits({ ...s, thickness: 1 });
+    const thick = pastaTraits({ ...s, thickness: 3 });
+    expect(thick.speedScale).toBeLessThan(thin.speedScale);
+    expect(thin.decayPx / thin.speedScale).toBeCloseTo(thick.decayPx / thick.speedScale);
+    expect(pastaTraits({ ...s, thickness: 2 }).speedScale).toBeCloseTo(1);
+  });
+});
+
 describe('captureFactor', () => {
   it('バー中心で1、離れるほど指数的に減る(左右対称)', () => {
     expect(captureFactor(0, 12)).toBe(1);
@@ -63,12 +73,15 @@ describe('超ハードモード', () => {
   for (const barHeight of [1, 2, 3, 4, 5])
     for (let k = 0; k <= 10; k++)
       for (let thickness = 1; thickness <= 3.001; thickness += 0.25)
-        for (let length = 2.5; length <= 5.5; length += 0.5) all.push({ barHeight, moisture: MOISTURE_MIN + (k / 10) * (MOISTURE_MAX - MOISTURE_MIN), thickness, length, barSpeed: 1 });
+        for (let length = 2.5; length <= 5.5; length += 0.5) all.push({ barHeight, moisture: MOISTURE_MIN + (k / 10) * (MOISTURE_MAX - MOISTURE_MIN), thickness, length });
 
   it('パラメーターもタイミングも完璧な最良ケースで成功率は約5%', () => {
     const best = Math.max(...all.map(survive));
     expect(best).toBeGreaterThan(0.04);
     expect(best).toBeLessThan(0.06);
+  });
+  it('初期設定の折れる確率は約80%', () => {
+    expect(pastaTraits(DEFAULT_SETTINGS).breakProb).toBeCloseTo(0.8);
   });
   it('初期設定は完璧に捉えても成功率が極めて低い', () => {
     expect(survive(DEFAULT_SETTINGS)).toBeLessThan(0.02);
@@ -88,12 +101,11 @@ describe('rollBreak', () => {
 
 describe('sanitizeSettings', () => {
   it('範囲外・不正値・旧形式を丸める', () => {
-    expect(sanitizeSettings({ barHeight: 99, moisture: -1, thickness: NaN, length: 100, barSpeed: 9 })).toEqual({
+    expect(sanitizeSettings({ barHeight: 99, moisture: -1, thickness: NaN, length: 100 })).toEqual({
       barHeight: 5,
       moisture: MOISTURE_MIN,
       thickness: 2,
       length: 5.5,
-      barSpeed: 2,
     });
     expect(sanitizeSettings({ moisture: 1 }).moisture).toBe(MOISTURE_MAX);
     expect(sanitizeSettings({ breakRate: 0.3 } as never)).toEqual(DEFAULT_SETTINGS);

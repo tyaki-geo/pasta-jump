@@ -129,9 +129,9 @@ export class Game {
     return this.settings.length * PPM;
   }
 
-  /** 帯が流れてくる速さ(離すゲージ)。突くゲージは走る速さで決まり、同じ倍率がかかる */
+  /** 帯が流れてくる速さ(離すゲージ)。突くゲージは走る速さで決まり、同じ倍率(太さ由来)がかかる */
   get gaugeSpeed(): number {
-    return GAUGE_SPEED * this.settings.barSpeed;
+    return GAUGE_SPEED * this.traits.speedScale;
   }
 
   get traits(): PastaTraits {
@@ -217,7 +217,7 @@ export class Game {
 
   private updateRun(dt: number): void {
     this.runTime += dt;
-    this.speed = Math.min(MAX_SPEED, 100 + this.runTime * 120) * this.settings.barSpeed;
+    this.speed = Math.min(MAX_SPEED, 100 + this.runTime * 120) * this.traits.speedScale;
     this.advanceWorld(dt);
     if (this.boxX === null && this.runTime >= BOX_SPAWN_TIME) this.boxX = BOX_SPAWN_X;
     this.updateRunPose();
@@ -442,7 +442,7 @@ export class Game {
   }
 
   private updateMiss(dt: number): void {
-    this.speed = Math.max(0, this.speed - (MAX_SPEED * this.settings.barSpeed / 0.7) * dt);
+    this.speed = Math.max(0, this.speed - (MAX_SPEED * this.traits.speedScale / 0.7) * dt);
     this.advanceWorld(dt);
     this.updateRunPose();
     if (this.t >= 0.7) {

@@ -7,8 +7,6 @@ export interface Settings {
   thickness: number;
   /** パスタの長さ(m) (長いほど折れやすい) */
   length: number;
-  /** 帯(タイミングゲージ)が流れてくる速さの倍率。大きいほど速い */
-  barSpeed: number;
 }
 
 export const BAR_MIN = 1;
@@ -19,15 +17,12 @@ export const LENGTH_MIN = 2.5;
 export const LENGTH_MAX = 5.5;
 export const MOISTURE_MIN = 0.05;
 export const MOISTURE_MAX = 0.15;
-export const BAR_SPEED_MIN = 0.5;
-export const BAR_SPEED_MAX = 2;
 
 export const DEFAULT_SETTINGS: Settings = {
   barHeight: 3,
   moisture: 0.1,
   thickness: 2,
   length: 4,
-  barSpeed: 1,
 };
 
 export const clamp = (v: number, min: number, max: number): number => Math.min(max, Math.max(min, v));
@@ -47,6 +42,8 @@ export interface PastaTraits {
   bendPx: number;
   /** 減衰距離λ(px): バー中心から離れるほど exp(-距離/λ) で確率が下がる。太いほど小さい */
   decayPx: number;
+  /** 帯が流れてくる速さの倍率。幅(decayPx)と同じ決め方: 太さ2mmで1、太いほど小さい */
+  speedScale: number;
   /** 帯の表示/受け付け範囲の半幅(px) */
   outerHalf: number;
 }
@@ -56,13 +53,15 @@ export function pastaTraits(s: Settings): PastaTraits {
   const m = norm(s.moisture, MOISTURE_MIN, MOISTURE_MAX);
   const t = norm(s.thickness, THICKNESS_MIN, THICKNESS_MAX);
   const l = norm(s.length, LENGTH_MIN, LENGTH_MAX);
-  const decayPx = BASE_DECAY_PX * (1.5 - t);
+  const bandFactor = 1.5 - t; // 帯の幅と速さは同じ式で太さから決める
+  const decayPx = BASE_DECAY_PX * bandFactor;
   // 超ハードモード: ほとんどの設定でパスタは折れる。折れにくい組み合わせ(太い・湿っている・短い)は帯が狭い
   const fragility = (0.5 + l) / ((0.5 + t) * (0.5 + m));
   return {
-    breakProb: clamp(0.75 * fragility ** 1.5, 0, 0.97),
+    breakProb: clamp(0.8 * fragility ** 1.5, 0, 0.97),
     bendPx: 38 * (0.4 + 1.2 * m),
     decayPx,
+    speedScale: bandFactor,
     outerHalf: decayPx * Math.log(1 / VISIBLE_FACTOR),
   };
 }
@@ -100,6 +99,5 @@ export function sanitizeSettings(raw: Partial<Settings> | null | undefined): Set
     moisture: clamp(num(raw?.moisture, DEFAULT_SETTINGS.moisture), MOISTURE_MIN, MOISTURE_MAX),
     thickness: clamp(num(raw?.thickness, DEFAULT_SETTINGS.thickness), THICKNESS_MIN, THICKNESS_MAX),
     length: clamp(num(raw?.length, DEFAULT_SETTINGS.length), LENGTH_MIN, LENGTH_MAX),
-    barSpeed: clamp(num(raw?.barSpeed, DEFAULT_SETTINGS.barSpeed), BAR_SPEED_MIN, BAR_SPEED_MAX),
   };
 }
