@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { Game, IDEAL_BOX_X, Result } from './game';
+import { Game, Result } from './game';
 import { Settings } from './logic';
 
-const base: Settings = { barHeight: 3, breakRate: 0, clearRate: 1 };
+// 緑を捉えれば成功確率100%、乱数0.99なら折れない設定
+const base: Settings = { barHeight: 3, moisture: 0.5, thickness: 2, length: 4 };
 
-function make(s: Settings, rng = () => 0): { g: Game; results: Result[] } {
+function make(s: Settings, rng = () => 0.99): { g: Game; results: Result[] } {
   const results: Result[] = [];
   return { g: new Game(s, (r) => results.push(r), rng), results };
 }
@@ -16,7 +17,7 @@ function step(g: Game, sec: number): void {
 /** 箱が理想位置に来るまで進めてタップ */
 function plantPerfectly(g: Game): void {
   g.start();
-  for (let i = 0; i < 600 && !(g.boxX !== null && g.boxX <= IDEAL_BOX_X); i++) g.update(1 / 60);
+  for (let i = 0; i < 600 && !(g.boxX !== null && g.boxX <= g.idealBoxX); i++) g.update(1 / 60);
   g.press();
 }
 
@@ -52,15 +53,15 @@ describe('Game', () => {
     expect(g.phase).toBe('vault');
   });
 
-  it('折れる確率100%なら折れる', () => {
-    const { g, results } = make({ ...base, breakRate: 1 }, () => 0);
+  it('乱数が折れる確率未満なら折れる', () => {
+    const { g, results } = make(base, () => 0);
     plantPerfectly(g);
     expect(g.phase).toBe('vault');
     step(g, 3);
     expect(results[0]?.kind).toBe('broke');
   });
 
-  it('完璧なタイミングかつ超えられる確率100%なら成功', () => {
+  it('緑を正確に捉えれば成功', () => {
     const { g, results } = make(base);
     plantPerfectly(g);
     step(g, 0.62 * 1.3);
@@ -71,8 +72,8 @@ describe('Game', () => {
     expect(g.barFallen).toBe(false);
   });
 
-  it('超えられる確率0%ならバーが落ちる', () => {
-    const { g, results } = make({ ...base, clearRate: 0 });
+  it('成功確率が低く乱数が高ければバーが落ちる', () => {
+    const { g, results } = make({ ...base, barHeight: 5, length: 2.5 });
     plantPerfectly(g);
     step(g, 0.62 * 1.3);
     g.liftOff();

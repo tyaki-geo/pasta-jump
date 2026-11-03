@@ -1,52 +1,95 @@
 export interface Settings {
   /** バーの高さ(m) */
   barHeight: number;
-  /** パスタが折れる確率 0..1 */
-  breakRate: number;
-  /** 折れなかった場合に超えられる確率(タイミング・高さ補正前) 0..1 */
-  clearRate: number;
+  /** パスタの水分量 0..1 (多いほどしなり、折れにくい) */
+  moisture: number;
+  /** パスタの太さ(mm) (太いほど折れにくく、タイミングの帯が狭い) */
+  thickness: number;
+  /** パスタの長さ(m) (長いほど折れやすい) */
+  length: number;
 }
 
 export const BAR_MIN = 1;
 export const BAR_MAX = 5;
+export const THICKNESS_MIN = 1;
+export const THICKNESS_MAX = 3;
+export const LENGTH_MIN = 2.5;
+export const LENGTH_MAX = 5.5;
 
 export const DEFAULT_SETTINGS: Settings = {
   barHeight: 3,
-  breakRate: 0.2,
-  clearRate: 0.8,
+  moisture: 0.5,
+  thickness: 2,
+  length: 4,
 };
 
 export const clamp = (v: number, min: number, max: number): number => Math.min(max, Math.max(min, v));
+const norm = (v: number, min: number, max: number): number => clamp((v - min) / (max - min), 0, 1);
 
-/** 誤差が0なら1、window以上なら0になる線形スコア */
-export function timingScore(error: number, window: number): number {
-  return clamp(1 - Math.abs(error) / window, 0, 1);
+/** 緑の帯から外れたときの指数減衰の速さ(帯の半幅あたり) */
+export const DECAY = 1.2;
+/** これ未満の確率係数になる位置は帯として表示しない(=受け付け範囲の端) */
+export const VISIBLE_FACTOR = 0.08;
+/** 水分量0.5・太さ2mmのときの緑の帯の半幅(px) */
+const BASE_GREEN_HALF = 40;
+
+export interface PastaTraits {
+  /** 折れる確率 0..1 */
+  breakProb: number;
+  /** しなりの大きさ(px) */
+  bendPx: number;
+  /** 緑の帯の半幅(px) */
+  greenHalf: number;
+  /** 帯の表示/受け付け範囲の半幅(px) */
+  outerHalf: number;
 }
 
-/**
- * 超えられる確率。clearRate にタイミング(0.4〜1.0倍)とバーの高さ(1.0〜0.6倍)の補正をかける。
- * 補正を入れるのでタイミングとバーの高さが結果に効く。
- */
-export function clearProbability(s: Settings, plantScore: number, releaseScore: number): number {
-  const timing = (plantScore + releaseScore) / 2;
-  const heightFactor = 1 - 0.1 * (s.barHeight - BAR_MIN);
-  return clamp(s.clearRate * (0.4 + 0.6 * timing) * heightFactor, 0, 1);
+/** パスタのパラメーターから挙動を決める */
+export function pastaTraits(s: Settings): PastaTraits {
+  const m = clamp(s.moisture, 0, 1);
+  const t = norm(s.thickness, THICKNESS_MIN, THICKNESS_MAX);
+  const l = norm(s.length, LENGTH_MIN, LENGTH_MAX);
+  const greenHalf = BASE_GREEN_HALF * (1.5 - t);
+  return {
+    breakProb: clamp((0.2 * (0.5 + l)) / ((0.5 + t) * (0.5 + m)), 0, 0.95),
+    bendPx: 38 * (0.4 + 1.2 * m),
+    greenHalf,
+    outerHalf: greenHalf * (1 + Math.log(1 / VISIBLE_FACTOR) / DECAY),
+  };
 }
 
-export const rollBreak = (s: Settings, rng: () => number = Math.random): boolean => rng() < s.breakRate;
+/** 緑の帯の中なら1、外れると指数的に下がる係数 */
+export function captureFactor(errPx: number, greenHalf: number): number {
+  const e = Math.abs(errPx) / greenHalf;
+  return e <= 1 ? 1 : Math.exp(-DECAY * (e - 1));
+}
+
+/** バーが高いほど(パスタが短いほど)成功しにくい */
+export function heightFactor(s: Settings): number {
+  return clamp(1.75 - s.barHeight / s.length, 0.1, 1);
+}
+
+/** 超えられる確率。突く/離す両方で緑を正確に捉えるほど高い */
+export function clearProbability(s: Settings, plantErrPx: number, releaseErrPx: number): number {
+  const { greenHalf } = pastaTraits(s);
+  return clamp(captureFactor(plantErrPx, greenHalf) * captureFactor(releaseErrPx, greenHalf) * heightFactor(s), 0, 1);
+}
+
+export const rollBreak = (s: Settings, rng: () => number = Math.random): boolean => rng() < pastaTraits(s).breakProb;
 
 export const rollClear = (
   s: Settings,
-  plantScore: number,
-  releaseScore: number,
+  plantErrPx: number,
+  releaseErrPx: number,
   rng: () => number = Math.random,
-): boolean => rng() < clearProbability(s, plantScore, releaseScore);
+): boolean => rng() < clearProbability(s, plantErrPx, releaseErrPx);
 
 export function sanitizeSettings(raw: Partial<Settings> | null | undefined): Settings {
   const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
   return {
     barHeight: clamp(num(raw?.barHeight, DEFAULT_SETTINGS.barHeight), BAR_MIN, BAR_MAX),
-    breakRate: clamp(num(raw?.breakRate, DEFAULT_SETTINGS.breakRate), 0, 1),
-    clearRate: clamp(num(raw?.clearRate, DEFAULT_SETTINGS.clearRate), 0, 1),
+    moisture: clamp(num(raw?.moisture, DEFAULT_SETTINGS.moisture), 0, 1),
+    thickness: clamp(num(raw?.thickness, DEFAULT_SETTINGS.thickness), THICKNESS_MIN, THICKNESS_MAX),
+    length: clamp(num(raw?.length, DEFAULT_SETTINGS.length), LENGTH_MIN, LENGTH_MAX),
   };
 }

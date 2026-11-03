@@ -1,6 +1,6 @@
 import './style.css';
 import { Game, Result } from './game';
-import { clearProbability } from './logic';
+import { clearProbability, pastaTraits } from './logic';
 import { draw } from './render';
 import { loadSettings, saveSettings } from './storage';
 
@@ -16,33 +16,42 @@ if (!ctx) throw new Error('2D canvas is not supported');
 const overlay = $('overlay');
 const message = $('message');
 const stats = $('stats');
-const barInput = $<HTMLInputElement>('bar');
-const breakInput = $<HTMLInputElement>('break');
-const clearInput = $<HTMLInputElement>('clear');
 const startButton = $<HTMLButtonElement>('start');
+const inputs = {
+  bar: $<HTMLInputElement>('bar'),
+  moisture: $<HTMLInputElement>('moisture'),
+  thickness: $<HTMLInputElement>('thickness'),
+  length: $<HTMLInputElement>('length'),
+};
 
 const settings = loadSettings();
-barInput.value = String(settings.barHeight);
-breakInput.value = String(Math.round(settings.breakRate * 100));
-clearInput.value = String(Math.round(settings.clearRate * 100));
+inputs.bar.value = String(settings.barHeight);
+inputs.moisture.value = String(Math.round(settings.moisture * 100));
+inputs.thickness.value = String(settings.thickness);
+inputs.length.value = String(settings.length);
 
 function syncSettings(): void {
-  settings.barHeight = Number(barInput.value);
-  settings.breakRate = Number(breakInput.value) / 100;
-  settings.clearRate = Number(clearInput.value) / 100;
+  settings.barHeight = Number(inputs.bar.value);
+  settings.moisture = Number(inputs.moisture.value) / 100;
+  settings.thickness = Number(inputs.thickness.value);
+  settings.length = Number(inputs.length.value);
   $('o-bar').textContent = `${settings.barHeight.toFixed(1)} m`;
-  $('o-break').textContent = `${breakInput.value} %`;
-  $('o-clear').textContent = `${clearInput.value} %`;
+  $('o-moisture').textContent = `${inputs.moisture.value} %`;
+  $('o-thickness').textContent = `${settings.thickness.toFixed(1)} mm`;
+  $('o-length').textContent = `${settings.length.toFixed(1)} m`;
+  const t = pastaTraits(settings);
+  $('traits').textContent =
+    `折れる確率 ${Math.round(t.breakProb * 100)}% / しなり ${Math.round(t.bendPx)} / 緑の帯 ${Math.round(t.greenHalf * 2)}px` +
+    ` / 完璧に捉えた時の成功率 ${Math.round(clearProbability(settings, 0, 0) * 100)}%`;
   saveSettings(settings);
 }
-for (const el of [barInput, breakInput, clearInput]) el.addEventListener('input', syncSettings);
+for (const el of Object.values(inputs)) el.addEventListener('input', syncSettings);
 syncSettings();
 
 function onFinish(r: Result): void {
   message.textContent = r.message;
-  const best = clearProbability(settings, 1, 1);
-  const parts = [`折れる確率 ${Math.round(r.breakRate * 100)}%`];
-  parts.push(r.clearProb === null ? `最良時の成功率 ${Math.round(best * 100)}%` : `この跳躍の成功率 ${Math.round(r.clearProb * 100)}%`);
+  const parts = [`折れる確率 ${Math.round(r.breakProb * 100)}%`];
+  if (r.clearProb !== null) parts.push(`この跳躍の成功率 ${Math.round(r.clearProb * 100)}%`);
   stats.textContent = parts.join(' / ');
   startButton.textContent = 'もう一度';
   setTimeout(() => overlay.classList.remove('hidden'), 400);

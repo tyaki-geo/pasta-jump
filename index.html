@@ -17,14 +17,18 @@
           <label>バーの高さ <output id="o-bar"></output>
             <input id="bar" type="range" min="1" max="5" step="0.1" />
           </label>
-          <label>パスタが折れる確率 <output id="o-break"></output>
-            <input id="break" type="range" min="0" max="100" step="1" />
+          <label>パスタの水分量 <output id="o-moisture"></output>
+            <input id="moisture" type="range" min="0" max="100" step="1" />
           </label>
-          <label>超えられる確率 <output id="o-clear"></output>
-            <input id="clear" type="range" min="0" max="100" step="1" />
+          <label>パスタの太さ <output id="o-thickness"></output>
+            <input id="thickness" type="range" min="1" max="3" step="0.1" />
           </label>
+          <label>パスタの長さ <output id="o-length"></output>
+            <input id="length" type="range" min="2.5" max="5.5" step="0.1" />
+          </label>
+          <p id="traits" class="traits"></p>
           <button id="start" type="button">スタート</button>
-          <p class="hint">地面のゲージで、緑がバーに重なったらタップして押しっぱなし（パスタを突く）→ 次の緑がバーに重なったら指を離す</p>
+          <p class="hint">地面のゲージで、緑がバーに重なったらタップして押しっぱなし（パスタを突く）→ 次の緑がバーに重なったら指を離す。緑を正確に捉えるほど成功しやすい</p>
         </div>
       </div>
     </div>
