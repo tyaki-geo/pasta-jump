@@ -2,11 +2,32 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#8fd3ff" />
     <title>パスタ棒高跳び</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="stage">
+      <canvas id="canvas" width="800" height="450"></canvas>
+      <div id="overlay">
+        <div class="panel">
+          <h1>パスタ棒高跳び</h1>
+          <p id="message" class="message">タップ/クリック/スペースキーで操作します（横向き推奨）</p>
+          <p id="stats" class="stats"></p>
+          <label>バーの高さ <output id="o-bar"></output>
+            <input id="bar" type="range" min="1" max="5" step="0.1" />
+          </label>
+          <label>パスタが折れる確率 <output id="o-break"></output>
+            <input id="break" type="range" min="0" max="100" step="1" />
+          </label>
+          <label>超えられる確率 <output id="o-clear"></output>
+            <input id="clear" type="range" min="0" max="100" step="1" />
+          </label>
+          <button id="start" type="button">スタート</button>
+          <p class="hint">走ってバーが現れたら、タイミングよくタップでパスタを突く → 緑のゾーンでタップして手を離す</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
