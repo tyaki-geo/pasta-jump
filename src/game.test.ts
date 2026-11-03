@@ -3,7 +3,7 @@ import { Game, Result } from './game';
 import { Settings } from './logic';
 
 // 緑を捉えれば成功確率100%、乱数0.99なら折れない設定
-const base: Settings = { barHeight: 3, moisture: 0.5, thickness: 2, length: 4 };
+const base: Settings = { barHeight: 1, moisture: 0.5, thickness: 2, length: 4 };
 
 function make(s: Settings, rng = () => 0.99): { g: Game; results: Result[] } {
   const results: Result[] = [];

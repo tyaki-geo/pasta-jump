@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DECAY, DEFAULT_SETTINGS, captureFactor, clearProbability, pastaTraits, rollBreak, sanitizeSettings } from './logic';
+import type { Settings } from './logic';
 
 const s = DEFAULT_SETTINGS;
 
@@ -53,6 +54,29 @@ describe('clearProbability', () => {
   it('バーが高いほど、パスタが短いほど下がる', () => {
     expect(clearProbability({ ...s, barHeight: 5 }, 0, 0)).toBeLessThan(clearProbability({ ...s, barHeight: 2 }, 0, 0));
     expect(clearProbability({ ...s, length: 2.5 }, 0, 0)).toBeLessThan(clearProbability({ ...s, length: 5 }, 0, 0));
+  });
+});
+
+describe('超ハードモード', () => {
+  const survive = (x: Settings) => (1 - pastaTraits(x).breakProb) * clearProbability(x, 0, 0);
+  const all: Settings[] = [];
+  for (const barHeight of [1, 2, 3, 4, 5])
+    for (let moisture = 0; moisture <= 1.001; moisture += 0.1)
+      for (let thickness = 1; thickness <= 3.001; thickness += 0.25)
+        for (let length = 2.5; length <= 5.5; length += 0.5) all.push({ barHeight, moisture, thickness, length });
+
+  it('初期設定は完璧に捉えても成功率が低い', () => {
+    expect(survive(DEFAULT_SETTINGS)).toBeLessThan(0.25);
+  });
+  it('ほとんどの設定では、完璧でも折れるか越えられない', () => {
+    const hard = all.filter((x) => survive(x) < 0.2).length / all.length;
+    expect(hard).toBeGreaterThan(0.65);
+  });
+  it('だが、越えられる設定の組み合わせは存在する', () => {
+    expect(Math.max(...all.map(survive))).toBeGreaterThan(0.8);
+  });
+  it('緑の帯は狭い(半幅20px未満)', () => {
+    for (const x of all) expect(pastaTraits(x).greenHalf).toBeLessThan(20);
   });
 });
 
