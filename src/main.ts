@@ -1,5 +1,6 @@
 import './style.css';
 import { Game, Result } from './game';
+import { fmt1 } from './logic';
 import { draw } from './render';
 import { loadSettings, saveSettings } from './storage';
 
@@ -33,10 +34,10 @@ function syncSettings(): void {
   settings.moisture = Number(inputs.moisture.value) / 100;
   settings.thickness = Number(inputs.thickness.value);
   settings.length = Number(inputs.length.value);
-  $('o-bar').textContent = `${settings.barHeight.toFixed(1)} m`;
-  $('o-moisture').textContent = `${inputs.moisture.value} %`;
-  $('o-thickness').textContent = `${settings.thickness.toFixed(1)} mm`;
-  $('o-length').textContent = `${settings.length.toFixed(1)} m`;
+  $('o-bar').textContent = `${fmt1(settings.barHeight)} m`;
+  $('o-moisture').textContent = `${fmt1(settings.moisture * 100)} %`;
+  $('o-thickness').textContent = `${fmt1(settings.thickness)} mm`;
+  $('o-length').textContent = `${fmt1(settings.length)} m`;
   saveSettings(settings);
 }
 for (const el of Object.values(inputs)) el.addEventListener('input', syncSettings);
@@ -44,7 +45,7 @@ syncSettings();
 
 function onFinish(r: Result): void {
   message.textContent = r.message;
-  startButton.textContent = 'もう一度';
+  startButton.textContent = 'Riprova';
   setTimeout(() => overlay.classList.remove('hidden'), 400);
 }
 

@@ -25,6 +25,9 @@ export const DEFAULT_SETTINGS: Settings = {
   length: 4,
 };
 
+/** 小数点以下1桁、区切りはイタリア式のカンマ */
+export const fmt1 = (n: number): string => n.toFixed(1).replace('.', ',');
+
 export const clamp = (v: number, min: number, max: number): number => Math.min(max, Math.max(min, v));
 const norm = (v: number, min: number, max: number): number => clamp((v - min) / (max - min), 0, 1);
 

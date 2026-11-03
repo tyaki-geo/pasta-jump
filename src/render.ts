@@ -1,5 +1,5 @@
 import { drawHanging, drawRunner } from './figure';
-import { VISIBLE_FACTOR, captureFactor, clamp } from './logic';
+import { VISIBLE_FACTOR, captureFactor, clamp, fmt1 } from './logic';
 import {
   BAR_OFFSET,
   Game,
@@ -152,7 +152,7 @@ function drawBarAndBox(ctx: CanvasRenderingContext2D, g: Game): void {
   ctx.fillStyle = INK;
   ctx.font = 'bold 16px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(`${g.settings.barHeight.toFixed(1)}m`, x + 70, y + 5);
+  ctx.fillText(`${fmt1(g.settings.barHeight)} m`, x + 70, y + 5);
   // マット
   ctx.fillStyle = '#4d7fd6';
   ctx.fillRect(x + 80, GROUND - 24, 160, 24);

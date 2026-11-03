@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLEAR_CEILING, MOISTURE_MAX, MOISTURE_MIN, DEFAULT_SETTINGS, captureFactor, clearProbability, pastaTraits, rollBreak, sanitizeSettings } from './logic';
+import { CLEAR_CEILING, MOISTURE_MAX, MOISTURE_MIN, DEFAULT_SETTINGS, captureFactor, clearProbability, fmt1, pastaTraits, rollBreak, sanitizeSettings } from './logic';
 import type { Settings } from './logic';
 
 const s = DEFAULT_SETTINGS;
@@ -88,6 +88,13 @@ describe('超ハードモード', () => {
   });
   it('帯の減衰距離は短い(λ < 20px)', () => {
     for (const x of all) expect(pastaTraits(x).decayPx).toBeLessThan(20);
+  });
+});
+
+describe('fmt1', () => {
+  it('小数点はカンマで表示する', () => {
+    expect(fmt1(3)).toBe('3,0');
+    expect(fmt1(10.5)).toBe('10,5');
   });
 });
 
