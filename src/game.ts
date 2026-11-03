@@ -14,7 +14,12 @@ const THETA0 = (-75 * Math.PI) / 180;
 const THETA1 = (70 * Math.PI) / 180;
 /** このx位置に箱が来たときが突きの理想タイミング */
 export const IDEAL_BOX_X = HANDS_X + POLE_LEN * Math.sin(-THETA0);
-export const PLANT_WINDOW = 80;
+export const PLANT_WINDOW = 100;
+/** 突きを受け付ける範囲(理想位置からの手前側px)。ゲージの表示範囲と同じ */
+export const PLANT_REACH = 300;
+/** 地面ゲージ: 固定バーの位置と、緑ゾーンが流れる速さ(px/s) */
+export const GAUGE_TARGET_X = 260;
+export const GAUGE_SPEED = 300;
 export const VAULT_TIME = 1.3;
 export const RELEASE_IDEAL = 0.62;
 export const RELEASE_WINDOW = 0.25;
@@ -22,7 +27,7 @@ export const BAR_OFFSET = 30; // 箱からバーまでの距離
 
 const BOX_SPAWN_TIME = 1.0;
 const BOX_SPAWN_X = 860;
-const MAX_SPEED = 320;
+const MAX_SPEED = 260;
 const GRAVITY = 900;
 
 export type Phase = 'ready' | 'run' | 'vault' | 'break' | 'fly' | 'miss' | 'done';
@@ -149,10 +154,14 @@ export class Game {
     this.phase = 'run';
   }
 
-  /** タップ/クリック/キー入力 */
-  input(): void {
+  /** 押した: 走行中ならパスタを突く(以降、離すまで握り続ける) */
+  press(): void {
     if (this.phase === 'run') this.tryPlant();
-    else if (this.phase === 'vault') this.release();
+  }
+
+  /** 離した: 跳躍中ならパスタから手を離す */
+  liftOff(): void {
+    if (this.phase === 'vault') this.release();
   }
 
   update(dt: number): void {
@@ -183,7 +192,7 @@ export class Game {
 
   private updateRun(dt: number): void {
     this.runTime += dt;
-    this.speed = Math.min(MAX_SPEED, 120 + this.runTime * 140);
+    this.speed = Math.min(MAX_SPEED, 100 + this.runTime * 120);
     this.advanceWorld(dt);
     if (this.boxX === null && this.runTime >= BOX_SPAWN_TIME) this.boxX = BOX_SPAWN_X;
     this.updateRunPose();
@@ -210,7 +219,7 @@ export class Game {
 
   private tryPlant(): void {
     const err = this.plantError;
-    if (err === null || err > PLANT_WINDOW) return; // まだ早い/箱がない: 無視
+    if (err === null || err > PLANT_REACH) return; // 箱がまだ遠い: 無視
     this.plantScore = timingScore(err, PLANT_WINDOW);
     this.willBreak = rollBreak(this.settings, this.rng);
     this.breakU = 0.3 + this.rng() * 0.35;
@@ -235,6 +244,9 @@ export class Game {
   private updateVault(dt: number): void {
     this.vaultU = Math.min(1, this.vaultU + dt / VAULT_TIME);
     const g = this.vaultGeometry(this.vaultU);
+    // 突いた直後は手の位置からなめらかにパスタの軌道へ移す
+    const k = clamp(this.t / 0.2, 0, 1);
+    g.top = { x: lerp(HANDS_X, g.top.x, k), y: lerp(HANDS_Y, g.top.y, k) };
     this.pole = { kind: 'vault', tipAngle: 0, base: { x: this.baseX, y: GROUND }, top: g.top, bend: g.bend };
     this.body = {
       kind: 'hang',
