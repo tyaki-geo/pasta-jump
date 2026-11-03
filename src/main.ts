@@ -22,11 +22,13 @@ const inputs = {
   moisture: $<HTMLInputElement>('moisture'),
   thickness: $<HTMLInputElement>('thickness'),
   length: $<HTMLInputElement>('length'),
+  speed: $<HTMLInputElement>('speed'),
 };
 
 const settings = loadSettings();
 inputs.bar.value = String(settings.barHeight);
-inputs.moisture.value = String(Math.round(settings.moisture * 100));
+inputs.moisture.value = String(Math.round(settings.moisture * 1000) / 10);
+inputs.speed.value = String(settings.barSpeed);
 inputs.thickness.value = String(settings.thickness);
 inputs.length.value = String(settings.length);
 
@@ -35,9 +37,11 @@ function syncSettings(): void {
   settings.moisture = Number(inputs.moisture.value) / 100;
   settings.thickness = Number(inputs.thickness.value);
   settings.length = Number(inputs.length.value);
+  settings.barSpeed = Number(inputs.speed.value);
   $('o-bar').textContent = `${settings.barHeight.toFixed(1)} m`;
   $('o-moisture').textContent = `${inputs.moisture.value} %`;
   $('o-thickness').textContent = `${settings.thickness.toFixed(1)} mm`;
+  $('o-speed').textContent = `×${settings.barSpeed.toFixed(1)}`;
   $('o-length').textContent = `${settings.length.toFixed(1)} m`;
   const t = pastaTraits(settings);
   $('traits').textContent =

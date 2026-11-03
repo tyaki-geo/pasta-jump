@@ -1,12 +1,14 @@
 export interface Settings {
   /** バーの高さ(m) */
   barHeight: number;
-  /** パスタの水分量 0..1 (多いほどしなり、折れにくい) */
+  /** パスタの水分量 0.05..0.15 (0%は粉、100%は水なので現実的な範囲に制限。多いほどしなり、折れにくい) */
   moisture: number;
   /** パスタの太さ(mm) (太いほど折れにくく、タイミングの帯が狭い) */
   thickness: number;
   /** パスタの長さ(m) (長いほど折れやすい) */
   length: number;
+  /** 帯(タイミングゲージ)が流れてくる速さの倍率。大きいほど速い */
+  barSpeed: number;
 }
 
 export const BAR_MIN = 1;
@@ -15,12 +17,17 @@ export const THICKNESS_MIN = 1;
 export const THICKNESS_MAX = 3;
 export const LENGTH_MIN = 2.5;
 export const LENGTH_MAX = 5.5;
+export const MOISTURE_MIN = 0.05;
+export const MOISTURE_MAX = 0.15;
+export const BAR_SPEED_MIN = 0.5;
+export const BAR_SPEED_MAX = 2;
 
 export const DEFAULT_SETTINGS: Settings = {
   barHeight: 3,
-  moisture: 0.5,
+  moisture: 0.1,
   thickness: 2,
   length: 4,
+  barSpeed: 1,
 };
 
 export const clamp = (v: number, min: number, max: number): number => Math.min(max, Math.max(min, v));
@@ -46,7 +53,7 @@ export interface PastaTraits {
 
 /** パスタのパラメーターから挙動を決める */
 export function pastaTraits(s: Settings): PastaTraits {
-  const m = clamp(s.moisture, 0, 1);
+  const m = norm(s.moisture, MOISTURE_MIN, MOISTURE_MAX);
   const t = norm(s.thickness, THICKNESS_MIN, THICKNESS_MAX);
   const l = norm(s.length, LENGTH_MIN, LENGTH_MAX);
   const decayPx = BASE_DECAY_PX * (1.5 - t);
@@ -90,8 +97,9 @@ export function sanitizeSettings(raw: Partial<Settings> | null | undefined): Set
   const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
   return {
     barHeight: clamp(num(raw?.barHeight, DEFAULT_SETTINGS.barHeight), BAR_MIN, BAR_MAX),
-    moisture: clamp(num(raw?.moisture, DEFAULT_SETTINGS.moisture), 0, 1),
+    moisture: clamp(num(raw?.moisture, DEFAULT_SETTINGS.moisture), MOISTURE_MIN, MOISTURE_MAX),
     thickness: clamp(num(raw?.thickness, DEFAULT_SETTINGS.thickness), THICKNESS_MIN, THICKNESS_MAX),
     length: clamp(num(raw?.length, DEFAULT_SETTINGS.length), LENGTH_MIN, LENGTH_MAX),
+    barSpeed: clamp(num(raw?.barSpeed, DEFAULT_SETTINGS.barSpeed), BAR_SPEED_MIN, BAR_SPEED_MAX),
   };
 }
