@@ -1,3 +1,4 @@
+import { drawHanging, drawRunner } from './figure';
 import {
   BAR_OFFSET,
   Game,
@@ -55,7 +56,8 @@ function pasta(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, bend = 0): void {
   }
 }
 
-function drawHanging(ctx: CanvasRenderingContext2D, x: number, y: number, alpha: number, cycle: number): void {
+// 棒人間版(人物版は figure.ts)。戻すときは下の draw() で差し替える
+export function drawHangingStick(ctx: CanvasRenderingContext2D, x: number, y: number, alpha: number, cycle: number): void {
   const d = { x: Math.sin(alpha), y: Math.cos(alpha) };
   const at = (k: number, dir = d): Pt => ({ x: x + dir.x * k, y: y + dir.y * k });
   const shoulder = at(22);
@@ -78,7 +80,7 @@ function drawHanging(ctx: CanvasRenderingContext2D, x: number, y: number, alpha:
   ctx.stroke();
 }
 
-function drawRunner(ctx: CanvasRenderingContext2D, x: number, cycle: number, running: boolean): void {
+export function drawRunnerStick(ctx: CanvasRenderingContext2D, x: number, cycle: number, running: boolean): void {
   const hip = { x, y: GROUND - 50 };
   const shoulder = { x: x + 6, y: GROUND - 88 };
   const head = { x: x + 11, y: GROUND - 104 };
