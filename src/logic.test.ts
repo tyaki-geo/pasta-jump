@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DECAY, DEFAULT_SETTINGS, captureFactor, clearProbability, pastaTraits, rollBreak, sanitizeSettings } from './logic';
+import { CLEAR_CEILING, DEFAULT_SETTINGS, captureFactor, clearProbability, pastaTraits, rollBreak, sanitizeSettings } from './logic';
 import type { Settings } from './logic';
 
 const s = DEFAULT_SETTINGS;
@@ -11,11 +11,11 @@ describe('pastaTraits', () => {
     expect(wet.bendPx).toBeGreaterThan(dry.bendPx);
     expect(wet.breakProb).toBeLessThan(dry.breakProb);
   });
-  it('太いほど折れにくく、緑の帯が狭い', () => {
+  it('太いほど折れにくく、帯が狭い', () => {
     const thin = pastaTraits({ ...s, thickness: 1 });
     const thick = pastaTraits({ ...s, thickness: 3 });
     expect(thick.breakProb).toBeLessThan(thin.breakProb);
-    expect(thick.greenHalf).toBeLessThan(thin.greenHalf);
+    expect(thick.decayPx).toBeLessThan(thin.decayPx);
   });
   it('長いほど折れやすい', () => {
     const short = pastaTraits({ ...s, length: 2.5 });
@@ -32,24 +32,24 @@ describe('pastaTraits', () => {
 });
 
 describe('captureFactor', () => {
-  it('緑の帯の中は1、外では指数的に減る', () => {
-    expect(captureFactor(0, 40)).toBe(1);
-    expect(captureFactor(-40, 40)).toBe(1);
-    expect(captureFactor(80, 40)).toBeCloseTo(Math.exp(-DECAY));
-    expect(captureFactor(120, 40)).toBeCloseTo(Math.exp(-2 * DECAY));
+  it('バー中心で1、離れるほど指数的に減る(左右対称)', () => {
+    expect(captureFactor(0, 12)).toBe(1);
+    expect(captureFactor(12, 12)).toBeCloseTo(Math.exp(-1));
+    expect(captureFactor(-24, 12)).toBeCloseTo(Math.exp(-2));
+    expect(captureFactor(36, 12) / captureFactor(24, 12)).toBeCloseTo(captureFactor(12, 12));
   });
 });
 
 describe('clearProbability', () => {
-  it('突く・離すの両方で緑を捉え、バーが低ければ100%', () => {
-    expect(clearProbability({ ...s, barHeight: 1 }, 0, 0)).toBe(1);
+  it('完璧なタイミングでも上限(CLEAR_CEILING)を超えない', () => {
+    expect(clearProbability({ ...s, barHeight: 1 }, 0, 0)).toBeCloseTo(CLEAR_CEILING);
   });
-  it('どちらかが外れるほど指数的に下がる(積)', () => {
+  it('突く・離すそれぞれ、中心から離れるほど指数的に下がる(積)', () => {
     const base = { ...s, barHeight: 1 };
-    const g = pastaTraits(base).greenHalf;
-    const one = clearProbability(base, g * 2, 0);
-    expect(one).toBeCloseTo(Math.exp(-DECAY));
-    expect(clearProbability(base, g * 2, g * 2)).toBeCloseTo(one * one);
+    const { decayPx } = pastaTraits(base);
+    const best = clearProbability(base, 0, 0);
+    expect(clearProbability(base, decayPx, 0) / best).toBeCloseTo(Math.exp(-1));
+    expect(clearProbability(base, decayPx, decayPx * 2) / best).toBeCloseTo(Math.exp(-3));
   });
   it('バーが高いほど、パスタが短いほど下がる', () => {
     expect(clearProbability({ ...s, barHeight: 5 }, 0, 0)).toBeLessThan(clearProbability({ ...s, barHeight: 2 }, 0, 0));
@@ -65,18 +65,16 @@ describe('超ハードモード', () => {
       for (let thickness = 1; thickness <= 3.001; thickness += 0.25)
         for (let length = 2.5; length <= 5.5; length += 0.5) all.push({ barHeight, moisture, thickness, length });
 
-  it('初期設定は完璧に捉えても成功率が低い', () => {
-    expect(survive(DEFAULT_SETTINGS)).toBeLessThan(0.25);
+  it('パラメーターもタイミングも完璧な最良ケースで成功率は約5%', () => {
+    const best = Math.max(...all.map(survive));
+    expect(best).toBeGreaterThan(0.04);
+    expect(best).toBeLessThan(0.06);
   });
-  it('ほとんどの設定では、完璧でも折れるか越えられない', () => {
-    const hard = all.filter((x) => survive(x) < 0.2).length / all.length;
-    expect(hard).toBeGreaterThan(0.65);
+  it('初期設定は完璧に捉えても成功率が極めて低い', () => {
+    expect(survive(DEFAULT_SETTINGS)).toBeLessThan(0.02);
   });
-  it('だが、越えられる設定の組み合わせは存在する', () => {
-    expect(Math.max(...all.map(survive))).toBeGreaterThan(0.8);
-  });
-  it('緑の帯は狭い(半幅20px未満)', () => {
-    for (const x of all) expect(pastaTraits(x).greenHalf).toBeLessThan(20);
+  it('帯の減衰距離は短い(λ < 20px)', () => {
+    for (const x of all) expect(pastaTraits(x).decayPx).toBeLessThan(20);
   });
 });
 
