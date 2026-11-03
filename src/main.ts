@@ -56,18 +56,48 @@ function start(): void {
 }
 startButton.addEventListener('click', start);
 
-// 突く=押す、離す=指を離す。ゲーム中のみ受け付ける
+// 突く=押す、離す=指を離す。ゲーム中のみ受け付ける。
+// 長押し中にブラウザが pointercancel を出す端末があるため、タッチは touch イベントで処理し、
+// pointer イベントはマウス/ペンのみにする。
+const stage = $('stage');
+const gameActive = () => overlay.classList.contains('hidden');
+
 canvas.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'touch') return;
   e.preventDefault();
   canvas.setPointerCapture(e.pointerId);
   game.press();
 });
 for (const type of ['pointerup', 'pointercancel'] as const) {
   canvas.addEventListener(type, (e) => {
-    e.preventDefault();
+    if (e.pointerType === 'touch') return;
     game.liftOff();
   });
 }
+
+stage.addEventListener(
+  'touchstart',
+  (e) => {
+    if (!gameActive()) return;
+    e.preventDefault(); // スクロール・拡大・長押しメニューを抑止
+    if (e.touches.length === 1) game.press();
+  },
+  { passive: false },
+);
+for (const type of ['touchend', 'touchcancel'] as const) {
+  stage.addEventListener(
+    type,
+    (e) => {
+      if (!gameActive()) return;
+      e.preventDefault();
+      if (e.touches.length === 0) game.liftOff();
+    },
+    { passive: false },
+  );
+}
+// 長押しのコンテキストメニュー・選択を無効化
+window.addEventListener('contextmenu', (e) => e.preventDefault());
+
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Space' || e.repeat || !overlay.classList.contains('hidden')) return;
   e.preventDefault();
